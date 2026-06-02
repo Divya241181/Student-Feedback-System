@@ -1,0 +1,364 @@
+{% extends 'feedback/base.html' %}
+{% block title %}{{ survey.title }}{% endblock %}
+
+{% block extra_head %}
+<style>
+  /* Progress bar */
+  #survey-progress-bar {
+    position: sticky;
+    top: 60px;
+    z-index: 40;
+    background: rgba(248,250,252,.95);
+    border-bottom: 1px solid #e2e8f0;
+    transition: all .3s;
+  }
+  .dark #survey-progress-bar {
+    background: rgba(20,25,33,.95);
+    border-bottom-color: #252d3d;
+    backdrop-filter: blur(8px);
+  }
+  .progress-fill {
+    height: 3px;
+    background: linear-gradient(90deg, #059669, #0284c7);
+    border-radius: 0 2px 2px 0;
+    transition: width .4s ease;
+  }
+
+  /* Rating buttons */
+  .rating-label { cursor: pointer; }
+  .rating-label input[type="radio"] { position: absolute; opacity: 0; width: 0; height: 0; }
+  .rating-btn {
+    display: flex; flex-direction: column; align-items: center; gap: 4px;
+    width: 48px; padding: 8px 0;
+    border: 2px solid #e2e8f0;
+    border-radius: .625rem;
+    font-size: .8rem; font-weight: 600;
+    color: #64748b;
+    cursor: pointer;
+    transition: all .15s;
+    user-select: none;
+  }
+  .dark .rating-btn { border-color: #252d3d; color: #94a3b8; }
+  .rating-btn:hover { border-color: #059669; color: #059669; background: rgba(5,150,105,.04); transform: translateY(-2px); }
+  .rating-label input[type="radio"]:checked + .rating-btn {
+    border-color: #059669;
+    background: #059669;
+    color: #fff;
+    box-shadow: 0 4px 12px rgba(5,150,105,.3);
+    transform: translateY(-2px);
+  }
+
+  /* MCQ option */
+  .mcq-label input[type="radio"] { position: absolute; opacity: 0; width: 0; height: 0; }
+  .mcq-option {
+    display: flex; align-items: center; gap: .75rem;
+    padding: .75rem 1rem;
+    border: 1.5px solid #e2e8f0;
+    border-radius: .625rem;
+    cursor: pointer;
+    transition: all .15s;
+  }
+  .mcq-radio-dot {
+    width: 18px; height: 18px;
+    border: 2px solid #cbd5e1;
+    border-radius: 50%;
+    flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    transition: all .15s;
+  }
+  .mcq-radio-dot::after {
+    content: ''; width: 8px; height: 8px;
+    border-radius: 50%; background: #059669;
+    transform: scale(0); transition: transform .15s;
+  }
+  .dark .mcq-option { border-color: #252d3d; }
+  .mcq-option:hover { border-color: #059669; background: rgba(5,150,105,.03); }
+  .dark .mcq-option:hover { background: rgba(5,150,105,.06); }
+  .mcq-label input[type="radio"]:checked + .mcq-option {
+    border-color: #059669;
+    background: rgba(5,150,105,.06);
+  }
+  .mcq-label input[type="radio"]:checked + .mcq-option .mcq-radio-dot {
+    border-color: #059669;
+  }
+  .mcq-label input[type="radio"]:checked + .mcq-option .mcq-radio-dot::after {
+    transform: scale(1);
+  }
+
+  /* Yes/No */
+  .yesno-label input[type="radio"] { position: absolute; opacity: 0; width: 0; height: 0; }
+  .yesno-btn {
+    flex: 1; text-align: center;
+    padding: .75rem 1rem;
+    border: 2px solid #e2e8f0;
+    border-radius: .625rem;
+    font-weight: 600; font-size: .875rem;
+    cursor: pointer; transition: all .15s;
+    color: #64748b;
+  }
+  .dark .yesno-btn { border-color: #252d3d; color: #94a3b8; }
+  .yesno-btn:hover { border-color: #059669; color: #059669; }
+  .yesno-label input[type="radio"]:checked + .yesno-btn {
+    border-color: #059669; background: #059669; color: #fff;
+  }
+
+  /* Question cards */
+  .q-card {
+    border: 1.5px solid #e2e8f0;
+    border-radius: 1rem;
+    background: #fff;
+    padding: 1.5rem;
+    transition: all .2s;
+  }
+  .dark .q-card { background: #1a2030; border-color: #252d3d; }
+  .q-card:focus-within { border-color: #059669; box-shadow: 0 0 0 3px rgba(5,150,105,.1); }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<!-- Sticky progress bar -->
+<div id="survey-progress-bar" class="-mx-4 sm:-mx-6 lg:-mx-8 -mt-8 mb-6 px-4 sm:px-6 lg:px-8 py-3">
+  <div class="max-w-2xl mx-auto flex items-center gap-3">
+    <span class="text-xs font-semibold text-slate-500 dark:text-slate-400 whitespace-nowrap">Progress</span>
+    <div class="flex-1 h-1.5 bg-slate-100 dark:bg-dark-muted rounded-full overflow-hidden">
+      <div id="progress-bar-fill" class="progress-fill h-full" style="width: 0%"></div>
+    </div>
+    <span id="progress-pct" class="text-xs font-bold text-primary whitespace-nowrap">0%</span>
+  </div>
+</div>
+
+<div class="max-w-2xl mx-auto animate-fade-up">
+
+  <!-- ── Survey Header Card ─────────────────────────────────────────── -->
+  <div class="rounded-2xl overflow-hidden mb-5 shadow-card">
+    <!-- Top gradient banner -->
+    <div class="bg-gradient-to-br from-emerald-600 to-teal-700 px-8 py-6 text-white">
+      <p class="text-xs font-bold uppercase tracking-widest text-emerald-200 mb-1.5 font-tech">
+        {{ survey.course.code }}
+      </p>
+      <h1 class="text-xl font-bold font-display mb-1">{{ survey.title }}</h1>
+      <p class="text-emerald-200 text-sm">{{ survey.course.name }}</p>
+      <p class="text-emerald-300/80 text-xs mt-0.5">Faculty: {{ survey.course.faculty.user.get_full_name }}</p>
+    </div>
+
+    <!-- Student info strip -->
+    <div class="bg-white dark:bg-dark-card border-x border-b border-slate-200 dark:border-dark-border
+                px-8 py-4 grid grid-cols-2 gap-y-2 text-sm">
+      <div>
+        <span class="text-slate-400 dark:text-slate-500 text-xs uppercase tracking-wide font-semibold">Name</span>
+        <p class="font-medium text-slate-700 dark:text-slate-200 mt-0.5">{{ student.user.get_full_name }}</p>
+      </div>
+      <div>
+        <span class="text-slate-400 dark:text-slate-500 text-xs uppercase tracking-wide font-semibold">Enrollment</span>
+        <p class="font-tech font-medium text-slate-700 dark:text-slate-200 mt-0.5">{{ student.enrollment_no }}</p>
+      </div>
+      <div>
+        <span class="text-slate-400 dark:text-slate-500 text-xs uppercase tracking-wide font-semibold">Branch</span>
+        <p class="font-medium text-slate-700 dark:text-slate-200 mt-0.5">{{ student.branch }}</p>
+      </div>
+      <div>
+        <span class="text-slate-400 dark:text-slate-500 text-xs uppercase tracking-wide font-semibold">Semester</span>
+        <p class="font-medium text-slate-700 dark:text-slate-200 mt-0.5">{{ student.semester }}</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Error messages ───────────────────────────────────────────── -->
+  {% if errors %}
+  <div class="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800/50 rounded-xl px-5 py-4 mb-5">
+    <p class="text-sm font-semibold text-red-700 dark:text-red-300 mb-2 flex items-center gap-1.5">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+      </svg>
+      Please fix the following:
+    </p>
+    <ul class="list-disc list-inside text-sm text-red-600 dark:text-red-400 space-y-1">
+      {% for err in errors %}<li>{{ err }}</li>{% endfor %}
+    </ul>
+  </div>
+  {% endif %}
+
+  <!-- ── Rating Scale Legend ──────────────────────────────────────── -->
+  <div class="bg-amber-50 dark:bg-amber-900/15 border border-amber-200 dark:border-amber-800/40 rounded-xl px-5 py-3 mb-6">
+    <p class="text-xs font-semibold text-amber-700 dark:text-amber-400 flex flex-wrap items-center gap-x-3 gap-y-1">
+      <span class="uppercase tracking-wide mr-1">Rating Scale:</span>
+      <span>1 — Strongly Disagree</span>
+      <span class="text-amber-300">·</span>
+      <span>2 — Disagree</span>
+      <span class="text-amber-300">·</span>
+      <span>3 — Neutral</span>
+      <span class="text-amber-300">·</span>
+      <span>4 — Agree</span>
+      <span class="text-amber-300">·</span>
+      <span>5 — Strongly Agree</span>
+    </p>
+  </div>
+
+  <!-- ── Survey Form ──────────────────────────────────────────────── -->
+  <form method="POST" action="{% url 'submit_survey' survey.pk %}" novalidate id="survey-form">
+    {% csrf_token %}
+
+    <div class="space-y-4" id="questions-container">
+      {% for question in questions %}
+      <div class="q-card" data-q-index="{{ forloop.counter }}">
+
+        <!-- Question meta -->
+        <div class="flex items-center gap-2 mb-3">
+          <span class="w-7 h-7 rounded-lg bg-slate-100 dark:bg-dark-muted flex items-center justify-center
+                       text-xs font-bold text-slate-500 dark:text-slate-400 flex-shrink-0 font-tech">
+            {{ question.order }}
+          </span>
+          {% if question.mapped_to_co %}
+          <span class="badge badge-green font-tech">{{ question.mapped_to_co.code }}</span>
+          {% endif %}
+          <span class="text-xs text-slate-400 dark:text-slate-500 ml-auto">{{ question.get_question_type_display }}</span>
+          {% if question.is_required %}
+          <span class="text-xs text-red-400 font-semibold">Required</span>
+          {% endif %}
+        </div>
+
+        <!-- Question text -->
+        <p class="text-sm font-semibold text-slate-800 dark:text-slate-100 mb-4 leading-relaxed">
+          {{ question.text }}
+          {% if question.is_required %}<span class="text-red-400 ml-1">*</span>{% endif %}
+        </p>
+
+        <!-- ── RATING ── -->
+        {% if question.question_type == 'rating' %}
+        <div>
+          <!-- Mobile helper legends -->
+          <div class="flex items-center justify-between sm:hidden text-[11px] text-slate-400 dark:text-slate-500 mb-2 font-medium">
+            <span>1 · Strongly Disagree</span>
+            <span>5 · Strongly Agree</span>
+          </div>
+          <div class="flex items-center gap-2 justify-between">
+            <span class="hidden sm:inline text-xs text-slate-400 dark:text-slate-500 text-center leading-tight w-16">Strongly<br>Disagree</span>
+            <div class="flex gap-2 flex-1 justify-evenly">
+              {% for val in "12345" %}
+              <label class="rating-label relative">
+                <input type="radio"
+                       name="question_{{ question.pk }}"
+                       value="{{ val }}"
+                       {% if question.is_required %}required{% endif %}>
+                <span class="rating-btn">
+                  {{ val }}
+                </span>
+              </label>
+              {% endfor %}
+            </div>
+            <span class="hidden sm:inline text-xs text-slate-400 dark:text-slate-500 text-center leading-tight w-16">Strongly<br>Agree</span>
+          </div>
+        </div>
+
+        <!-- ── MCQ ── -->
+        {% elif question.question_type == 'mcq' %}
+        <div class="space-y-2">
+          {% for option in question.mcq_options.all %}
+          <label class="mcq-label relative block">
+            <input type="radio"
+                   name="question_{{ question.pk }}"
+                   value="{{ option.pk }}"
+                   {% if question.is_required %}required{% endif %}>
+            <span class="mcq-option">
+              <span class="mcq-radio-dot"></span>
+              <span class="text-sm text-slate-700 dark:text-slate-200 font-medium">{{ option.option_text }}</span>
+            </span>
+          </label>
+          {% empty %}
+          <p class="text-xs text-slate-400 italic">No options configured for this question.</p>
+          {% endfor %}
+        </div>
+
+        <!-- ── TEXT ── -->
+        {% elif question.question_type == 'text' %}
+        <textarea name="question_{{ question.pk }}"
+                  id="q_{{ question.pk }}"
+                  rows="3"
+                  placeholder="Type your answer here..."
+                  class="form-input resize-none"
+                  {% if question.is_required %}required{% endif %}></textarea>
+
+        <!-- ── YES/NO ── -->
+        {% elif question.question_type == 'yes_no' %}
+        <div class="flex gap-3">
+          <label class="yesno-label relative flex-1">
+            <input type="radio" name="question_{{ question.pk }}" value="yes" {% if question.is_required %}required{% endif %}>
+            <span class="yesno-btn">✓ Yes</span>
+          </label>
+          <label class="yesno-label relative flex-1">
+            <input type="radio" name="question_{{ question.pk }}" value="no" {% if question.is_required %}required{% endif %}>
+            <span class="yesno-btn">✗ No</span>
+          </label>
+        </div>
+        {% endif %}
+
+      </div>
+      {% empty %}
+      <div class="card p-10 text-center border-dashed">
+        <p class="text-slate-400 text-sm">This survey has no questions yet.</p>
+      </div>
+      {% endfor %}
+    </div>
+
+    <!-- ── Submit Row ── -->
+    {% if questions %}
+    <div class="flex flex-wrap items-center gap-3 mt-6 pb-8">
+      <button id="btn_submit_survey" type="submit" class="btn-primary">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+        </svg>
+        Submit Feedback
+      </button>
+      <button type="reset" class="btn-ghost">
+        Clear Form
+      </button>
+      <a href="{% url 'student_dashboard' %}"
+         class="ml-auto text-sm text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 transition">
+        Cancel
+      </a>
+    </div>
+    {% endif %}
+
+  </form>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+  // ── Survey progress tracker ────────────────────────────────────────────
+  const form       = document.getElementById('survey-form');
+  const pctLabel   = document.getElementById('progress-pct');
+  const bar        = document.getElementById('progress-bar-fill');
+  const totalQ     = document.querySelectorAll('.q-card').length;
+
+  function updateProgress() {
+    if (!totalQ) return;
+    let answered = 0;
+    document.querySelectorAll('.q-card').forEach(card => {
+      const inputs = card.querySelectorAll('input[type="radio"]:checked, textarea, input[type="text"]');
+      inputs.forEach(inp => {
+        if (inp.tagName === 'TEXTAREA' || inp.type === 'text') {
+          if (inp.value.trim()) answered++;
+        } else {
+          answered++;
+        }
+      });
+    });
+    // Count unique answered questions
+    let answeredQ = 0;
+    document.querySelectorAll('.q-card').forEach(card => {
+      const radios    = card.querySelectorAll('input[type="radio"]:checked');
+      const textareas = card.querySelectorAll('textarea');
+      if (radios.length > 0) { answeredQ++; return; }
+      textareas.forEach(t => { if (t.value.trim()) answeredQ++; });
+    });
+    const pct = Math.round((answeredQ / totalQ) * 100);
+    bar.style.width = pct + '%';
+    pctLabel.textContent = pct + '%';
+  }
+
+  form?.addEventListener('change', updateProgress);
+  form?.addEventListener('input', updateProgress);
+</script>
+{% endblock %}

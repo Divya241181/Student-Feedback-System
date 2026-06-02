@@ -1,0 +1,118 @@
+<div class="bg-white dark:bg-dark-card border-2 border-primary/40 dark:border-primary/40 rounded-2xl p-5 mb-2 shadow-card relative">
+  <form hx-post="{% url 'edit_question' survey.pk q.pk %}"
+        hx-target="#question-list"
+        hx-swap="innerHTML"
+        class="space-y-4">
+    {% csrf_token %}
+
+    <div class="flex items-center justify-between mb-1">
+      <h3 class="text-sm font-bold text-primary font-display">Edit Question {{ q.order }}</h3>
+      <button type="button" hx-get="{% url 'add_question' survey.pk %}" hx-target="#question-list"
+              class="text-xs text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition font-medium">
+        Cancel
+      </button>
+    </div>
+
+    <div>
+      <label class="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1.5 uppercase tracking-wide">
+        Question Text <span class="text-red-400">*</span>
+      </label>
+      {{ q_form.text }}
+    </div>
+
+    <div class="grid grid-cols-2 lg:grid-cols-3 gap-3 bg-slate-50 dark:bg-dark-bg/60 p-3 rounded-xl">
+      <div>
+        <label class="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1.5 uppercase tracking-wide">Format</label>
+        {{ q_form.question_type }}
+      </div>
+      <div>
+        <label class="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1.5 uppercase tracking-wide">Order</label>
+        {{ q_form.order }}
+      </div>
+      <div>
+        <label class="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1.5 uppercase tracking-wide">Outcome</label>
+        {{ q_form.mapped_to_co }}
+      </div>
+    </div>
+
+    <!-- MCQ Options -->
+    <div id="edit-mcq-options-container-{{ q.pk }}"
+         class="{% if q.question_type != 'mcq' %}hidden{% endif %} bg-slate-50 dark:bg-dark-bg/60 p-4 rounded-xl border border-slate-100 dark:border-dark-border">
+      <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-2 uppercase tracking-wide">
+        Choice Options <span class="text-red-400">*</span>
+      </label>
+      <div id="edit-mcq-options-list-{{ q.pk }}" class="space-y-2">
+        {% if q.question_type == 'mcq' %}
+          {% for opt in q.mcq_options.all %}
+          <div class="flex items-center gap-2 option-row">
+            <input type="text" name="mcq_options" value="{{ opt.option_text }}" class="form-input">
+            <button type="button" class="text-slate-400 hover:text-red-500 p-1.5 transition flex-shrink-0" onclick="this.parentElement.remove()">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+            </button>
+          </div>
+          {% endfor %}
+        {% else %}
+          <div class="flex items-center gap-2 option-row">
+            <input type="text" name="mcq_options" placeholder="Option 1" class="form-input">
+            <button type="button" class="text-slate-400 hover:text-red-500 p-1.5 transition flex-shrink-0" onclick="this.parentElement.remove()">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+            </button>
+          </div>
+          <div class="flex items-center gap-2 option-row">
+            <input type="text" name="mcq_options" placeholder="Option 2" class="form-input">
+            <button type="button" class="text-slate-400 hover:text-red-500 p-1.5 transition flex-shrink-0" onclick="this.parentElement.remove()">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+            </button>
+          </div>
+        {% endif %}
+      </div>
+      <button type="button" onclick="addEditMCQOption('{{ q.pk }}')"
+              class="text-xs text-primary font-semibold hover:text-primary/70 transition flex items-center gap-1 mt-3">
+        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/></svg>
+        Add another option
+      </button>
+    </div>
+
+    <div class="flex items-center justify-between pt-2 border-t border-slate-100 dark:border-dark-border">
+      <label class="flex items-center gap-2 cursor-pointer">
+        {{ q_form.is_required }}
+        <span class="text-sm font-medium text-slate-600 dark:text-slate-300">Required answer</span>
+      </label>
+      <button type="submit" class="btn-primary">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+        </svg>
+        Save Question
+      </button>
+    </div>
+  </form>
+
+  <script>
+    (function() {
+      const qPk        = '{{ q.pk }}';
+      const form       = document.currentScript.previousElementSibling;
+      const qTypeSel   = form.querySelector("select[name='question_type']");
+      const mcqCont    = document.getElementById("edit-mcq-options-container-" + qPk);
+
+      if (qTypeSel && mcqCont) {
+        qTypeSel.addEventListener('change', function() {
+          mcqCont.classList.toggle('hidden', this.value !== 'mcq');
+        });
+      }
+    })();
+
+    function addEditMCQOption(qPk) {
+      const list  = document.getElementById("edit-mcq-options-list-" + qPk);
+      const count = list.querySelectorAll('.option-row').length + 1;
+      const row   = document.createElement('div');
+      row.className = 'flex items-center gap-2 option-row';
+      row.innerHTML = `
+        <input type="text" name="mcq_options" placeholder="Option ${count}" class="form-input">
+        <button type="button" class="text-slate-400 hover:text-red-500 p-1.5 transition flex-shrink-0" onclick="this.parentElement.remove()">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+        </button>
+      `;
+      list.appendChild(row);
+    }
+  </script>
+</div>

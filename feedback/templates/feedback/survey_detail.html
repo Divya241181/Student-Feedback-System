@@ -1,0 +1,317 @@
+{% extends 'feedback/base.html' %}
+{% block title %}{{ survey.title }}{% endblock %}
+
+{% block extra_head %}
+  <!-- HTMX -->
+  <script src="https://unpkg.com/htmx.org@1.9.10" defer></script>
+  <style>
+    /* Step badges */
+    .step-badge {
+      width: 28px; height: 28px;
+      border-radius: .5rem;
+      display: flex; align-items: center; justify-content: center;
+      font-size: .8rem; font-weight: 700;
+      flex-shrink: 0;
+      font-family: 'Plus Jakarta Sans', sans-serif;
+    }
+    .step-1 { background: #f1f5f9; color: #64748b; }
+    .step-2 { background: #d1fae5; color: #059669; }
+    .dark .step-1 { background: #252d3d; color: #94a3b8; }
+    .dark .step-2 { background: rgba(5,150,105,.25); color: #34d399; }
+  </style>
+{% endblock %}
+
+{% block page_header %}
+<div class="page-header">
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+    <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+      <div>
+        <!-- Breadcrumb -->
+        <div class="flex items-center gap-2 text-xs text-slate-400 dark:text-slate-500 mb-2 flex-wrap">
+          <a href="{% url 'faculty_dashboard' %}" class="hover:text-slate-600 dark:text-slate-300 transition">Dashboard</a>
+          <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+          <span class="text-slate-600 dark:text-slate-300 font-semibold max-w-[200px] truncate">{{ survey.title }}</span>
+        </div>
+        <h1 class="text-xl font-bold font-display text-slate-800 dark:text-slate-100">{{ survey.title }}</h1>
+        <p class="text-sm text-slate-400 dark:text-slate-500 mt-0.5 flex items-center gap-2">
+          <span class="font-tech">{{ survey.course.code }}</span>
+          <span class="text-slate-300 dark:text-slate-600">·</span>
+          <span>{{ survey.course.name }}</span>
+          <span class="text-slate-300 dark:text-slate-600">·</span>
+          <span class="font-semibold
+            {% if survey.is_published %}text-emerald-600 dark:text-emerald-400{% else %}text-amber-500{% endif %}">
+            {% if survey.is_published %}Published{% else %}Draft{% endif %}
+          </span>
+        </p>
+        <p class="text-xs text-slate-400 dark:text-slate-500 mt-1 font-tech">
+          {{ survey.start_date|date:"d M Y, H:i" }} &nbsp;→&nbsp; {{ survey.end_date|date:"d M Y, H:i" }}
+        </p>
+      </div>
+
+      <!-- Action buttons -->
+      <div class="flex items-center gap-3 flex-shrink-0">
+        <a href="{% url 'survey_results' survey.pk %}" class="btn-ghost">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+          </svg>
+          View Analytics
+        </a>
+        <form method="POST" action="{% url 'publish_survey' survey.pk %}">
+          {% csrf_token %}
+          {% if survey.is_published %}
+          <button id="btn_unpublish" type="submit"
+                  class="flex items-center gap-1.5 px-4 py-2 border-2 border-amber-300 dark:border-amber-700/60
+                         text-amber-600 dark:text-amber-400 rounded-lg text-sm font-semibold
+                         hover:bg-amber-50 dark:hover:bg-amber-900/20 transition-all">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"/>
+            </svg>
+            Unpublish
+          </button>
+          {% else %}
+          <button id="btn_publish" type="submit" class="btn-primary">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M5 13l4 4L19 7"/>
+            </svg>
+            Publish Survey
+          </button>
+          {% endif %}
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block content %}
+
+<!-- ── Builder Layout ─────────────────────────────────────────────────── -->
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-8 mt-4 animate-fade-up">
+
+  <!-- ── LEFT: Course Outcomes ────────────────────────────────────── -->
+  <div class="lg:col-span-1">
+    <div class="sticky top-24 space-y-6">
+      <section>
+        <div class="flex items-center gap-2 mb-4">
+          <span class="step-badge step-1">1</span>
+          <h2 class="text-sm font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wide font-display">
+            Course Outcomes
+          </h2>
+        </div>
+        <p class="text-xs text-slate-400 dark:text-slate-500 mb-4 leading-relaxed">
+          Add CO1, CO2… here. You can then link each question to a CO for OBE analytics.
+        </p>
+
+        {% if survey_has_responses %}
+        <div class="bg-amber-50 dark:bg-amber-900/15 border border-amber-200 dark:border-amber-700/40 text-amber-700 dark:text-amber-400 p-4 rounded-xl text-xs mb-4">
+          <p class="font-semibold flex items-center gap-1.5 mb-1">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+            </svg>
+            Editing Locked
+          </p>
+          <p class="text-amber-600 dark:text-amber-500">Students have already responded. COs cannot be modified.</p>
+        </div>
+        {% else %}
+        <form hx-post="{% url 'add_co' survey.pk %}"
+              hx-target="#co-list"
+              hx-swap="innerHTML"
+              hx-on::after-request="this.reset()"
+              class="card p-4 mb-4 space-y-3 focus-within:border-primary dark:focus-within:border-primary transition-colors">
+          {% csrf_token %}
+          <div>
+            <label class="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1.5 uppercase tracking-wide">
+              CO Code <span class="text-red-400">*</span>
+            </label>
+            {{ co_form.code }}
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1.5 uppercase tracking-wide">
+              Description <span class="text-red-400">*</span>
+            </label>
+            {{ co_form.description }}
+          </div>
+          <button type="submit"
+                  class="w-full flex items-center justify-center gap-1.5 text-xs font-semibold text-primary
+                         border border-primary/30 rounded-lg py-2 hover:bg-primary/5 transition-all">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/>
+            </svg>
+            Save Outcome
+          </button>
+        </form>
+        {% endif %}
+
+        <div id="co-list">
+          {% include 'feedback/partials/co_list.html' %}
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <!-- ── RIGHT: Question Builder ──────────────────────────────────── -->
+  <div class="lg:col-span-2">
+    <section>
+      <div class="flex items-center gap-2 mb-4">
+        <span class="step-badge step-2">2</span>
+        <h2 class="text-sm font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wide font-display">
+          Question Canvas
+        </h2>
+      </div>
+
+      {% if survey_has_responses %}
+      <div class="bg-amber-50 dark:bg-amber-900/15 border border-amber-200 dark:border-amber-700/40 p-6 rounded-2xl mb-8">
+        <p class="font-semibold text-amber-700 dark:text-amber-400 flex items-center gap-2 mb-2">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+          </svg>
+          Question Builder Locked
+        </p>
+        <p class="text-sm text-amber-600 dark:text-amber-500">
+          Students have already submitted responses. Modifying questions is disabled to prevent data corruption.
+          To overhaul, create a new survey or delete this one.
+        </p>
+      </div>
+      {% else %}
+      <!-- Add Question Form -->
+      <form hx-post="{% url 'add_question' survey.pk %}"
+            hx-target="#question-list"
+            hx-swap="innerHTML"
+            hx-on::after-request="this.reset()"
+            class="card border-2 border-dashed border-slate-200 dark:border-dark-border
+                   hover:border-primary/40 dark:hover:border-primary/30 p-6 mb-8 transition-colors">
+        {% csrf_token %}
+
+        <div class="mb-4">
+          <label class="block text-sm font-semibold text-slate-700 dark:text-slate-200 mb-2">
+            Question Text <span class="text-red-400">*</span>
+          </label>
+          {{ q_form.text }}
+        </div>
+
+        <div class="grid grid-cols-2 lg:grid-cols-3 gap-4 mb-4 bg-slate-50 dark:bg-dark-bg/60 p-4 rounded-xl">
+          <div>
+            <label class="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1.5 uppercase tracking-wide">Format</label>
+            {{ q_form.question_type }}
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1.5 uppercase tracking-wide">Order</label>
+            {{ q_form.order }}
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1.5 uppercase tracking-wide">
+              Tie to Outcome
+            </label>
+            {{ q_form.mapped_to_co }}
+          </div>
+        </div>
+
+        <!-- MCQ Options -->
+        <div id="mcq-options-container" class="hidden mb-4 bg-slate-50 dark:bg-dark-bg/60 p-4 rounded-xl border border-slate-100 dark:border-dark-border">
+          <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-2 uppercase tracking-wide">
+            Choice Options <span class="text-red-400">*</span>
+          </label>
+          <div id="mcq-options-list" class="space-y-2">
+            <div class="flex items-center gap-2 option-row">
+              <input type="text" name="mcq_options" placeholder="Option 1" class="form-input">
+              <button type="button" class="text-slate-400 hover:text-red-500 px-2 flex-shrink-0 transition" onclick="this.parentElement.remove()">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+              </button>
+            </div>
+            <div class="flex items-center gap-2 option-row">
+              <input type="text" name="mcq_options" placeholder="Option 2" class="form-input">
+              <button type="button" class="text-slate-400 hover:text-red-500 px-2 flex-shrink-0 transition" onclick="this.parentElement.remove()">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+              </button>
+            </div>
+          </div>
+          <button type="button" id="add-mcq-option"
+                  class="text-xs text-primary font-semibold hover:text-primary/70 transition flex items-center gap-1 mt-3">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/></svg>
+            Add another option
+          </button>
+        </div>
+
+        <div class="flex items-center justify-between mt-2 pt-4 border-t border-slate-100 dark:border-dark-border">
+          <label class="flex items-center gap-2 cursor-pointer">
+            {{ q_form.is_required }}
+            <span class="text-sm font-medium text-slate-600 dark:text-slate-300">Required answer</span>
+          </label>
+          <button type="submit" class="btn-primary">
+            Add to Form
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3"/>
+            </svg>
+          </button>
+        </div>
+      </form>
+      {% endif %}
+
+      <!-- Question list (HTMX target) -->
+      <div id="question-list" class="space-y-3">
+        {% include 'feedback/partials/question_list.html' %}
+      </div>
+    </section>
+  </div>
+</div>
+
+<script>
+  document.addEventListener("DOMContentLoaded", function() {
+    const qTypeSelect   = document.querySelector("select[name='question_type']");
+    const mcqContainer  = document.getElementById("mcq-options-container");
+    const mcqList       = document.getElementById("mcq-options-list");
+    const addOptionBtn  = document.getElementById("add-mcq-option");
+
+    // Reset MCQ container after HTMX submission
+    document.body.addEventListener('htmx:afterRequest', function(event) {
+      if (event.detail.elt.hasAttribute('hx-post') &&
+          event.detail.elt.getAttribute('hx-target') === '#question-list') {
+        if (event.detail.successful) {
+          if (mcqContainer) mcqContainer.classList.add('hidden');
+          if (mcqList) {
+            mcqList.innerHTML = `
+              <div class="flex items-center gap-2 option-row">
+                <input type="text" name="mcq_options" placeholder="Option 1" class="form-input">
+                <button type="button" class="text-slate-400 hover:text-red-500 px-2 flex-shrink-0 transition" onclick="this.parentElement.remove()">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                </button>
+              </div>
+              <div class="flex items-center gap-2 option-row">
+                <input type="text" name="mcq_options" placeholder="Option 2" class="form-input">
+                <button type="button" class="text-slate-400 hover:text-red-500 px-2 flex-shrink-0 transition" onclick="this.parentElement.remove()">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                </button>
+              </div>
+            `;
+          }
+        }
+      }
+    });
+
+    if (qTypeSelect && mcqContainer) {
+      const toggle = () => qTypeSelect.value === 'mcq'
+        ? mcqContainer.classList.remove('hidden')
+        : mcqContainer.classList.add('hidden');
+      qTypeSelect.addEventListener('change', toggle);
+      toggle();
+    }
+
+    if (addOptionBtn && mcqList) {
+      addOptionBtn.addEventListener('click', function() {
+        const count  = mcqList.querySelectorAll('.option-row').length + 1;
+        const row    = document.createElement('div');
+        row.className = 'flex items-center gap-2 option-row';
+        row.innerHTML = `
+          <input type="text" name="mcq_options" placeholder="Option ${count}" class="form-input">
+          <button type="button" class="text-slate-400 hover:text-red-500 px-2 flex-shrink-0 transition" onclick="this.parentElement.remove()">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+          </button>
+        `;
+        mcqList.appendChild(row);
+      });
+    }
+  });
+</script>
+{% endblock %}

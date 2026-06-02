@@ -1,0 +1,67 @@
+{% for q in questions %}
+<div class="bg-white dark:bg-dark-card border border-slate-200 dark:border-dark-border rounded-xl px-5 py-4 mb-2
+            hover:border-slate-300 dark:hover:border-dark-muted transition-colors group question-card">
+  <div class="flex items-start justify-between gap-3 mb-2">
+    <div class="flex items-center gap-2 flex-wrap">
+      <!-- Order badge -->
+      <span class="w-6 h-6 rounded-md bg-slate-100 dark:bg-dark-muted flex items-center justify-center
+                   text-[11px] font-bold text-slate-500 dark:text-slate-400 flex-shrink-0 font-tech">
+        {{ q.order }}
+      </span>
+      <!-- Type badge -->
+      <span class="badge
+        {% if q.question_type == 'rating' %}badge-green
+        {% elif q.question_type == 'mcq' %}badge-slate
+        {% elif q.question_type == 'text' %}badge-amber
+        {% else %}badge-slate{% endif %}">
+        {{ q.get_question_type_display }}
+      </span>
+      {% if q.mapped_to_co %}
+      <span class="badge badge-green font-tech">{{ q.mapped_to_co.code }}</span>
+      {% endif %}
+      {% if q.is_required %}
+      <span class="text-[11px] font-semibold text-red-400">Required</span>
+      {% endif %}
+    </div>
+
+    <!-- Action buttons -->
+    <div class="flex items-center gap-1 flex-shrink-0">
+      {% if not survey_has_responses %}
+      <button hx-get="{% url 'edit_question' survey.pk q.pk %}"
+              hx-target="closest .question-card"
+              hx-swap="outerHTML"
+              class="p-1.5 text-slate-400 hover:text-primary rounded-lg hover:bg-primary/5 transition-all" title="Edit">
+        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/>
+        </svg>
+      </button>
+      <button hx-delete="{% url 'delete_question' survey.pk q.pk %}"
+              hx-confirm="Delete this question?"
+              hx-target="#question-list"
+              class="p-1.5 text-slate-400 hover:text-red-500 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-all" title="Delete">
+        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+        </svg>
+      </button>
+      {% endif %}
+    </div>
+  </div>
+
+  <p class="text-sm text-slate-700 dark:text-slate-200 leading-snug group-hover:text-slate-900 dark:group-hover:text-slate-100 transition-colors">
+    {{ q.text }}
+  </p>
+</div>
+{% empty %}
+<div class="text-center py-12 border border-dashed border-slate-200 dark:border-dark-border rounded-2xl">
+  <div class="w-12 h-12 rounded-2xl bg-slate-100 dark:bg-dark-muted flex items-center justify-center mx-auto mb-3">
+    <svg class="w-6 h-6 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+            d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+    </svg>
+  </div>
+  <p class="text-sm font-medium text-slate-500 dark:text-slate-400">No questions added yet.</p>
+  <p class="text-xs text-slate-400 dark:text-slate-500 mt-0.5">Use the form above to add your first question.</p>
+</div>
+{% endfor %}
